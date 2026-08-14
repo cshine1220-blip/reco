@@ -878,10 +878,17 @@
   // - 提供下載原檔備份與更新後檔案
   async function autoLoadRecs() {
     try {
+      console.log('autoLoadRecs start');
       // 先取得目前 recommendations.json
       const resp = await fetch('recommendations.json');
-      if (!resp.ok) { alert('無法讀取 recommendations.json（請確認檔案存在）'); return; }
+      console.log('fetch recommendations.json status', resp.status, resp.statusText);
+      if (!resp.ok) {
+        console.error('Failed to fetch recommendations.json', resp.status, resp.statusText);
+        alert('無法讀取 recommendations.json（請確認檔案存在，詳情請見 Console）');
+        return;
+      }
       const orig = await resp.json();
+      console.log('original recommendations loaded, count=', Array.isArray(orig) ? orig.length : typeof orig);
 
       // 建立備份檔供使用者下載（原始檔）
       const ts = new Date().toISOString().replace(/[:.]/g,'-');
@@ -889,16 +896,24 @@
 
       // 篩選出匹配關鍵詞的項目
       const kws = DEFAULT_RECIPE_KEYWORDS.map(k=>k.toLowerCase());
+      console.log('using keywords', kws);
       const matched = [];
       const rest = [];
-      orig.forEach(item => {
-        const text = ((item.name||'') + ' ' + (item.comment||'') + ' ' + (item.source||'') + ' ' + (item.teacher||'')).toLowerCase();
-        const hit = kws.some(k => text.includes(k));
-        if (hit) matched.push(item); else rest.push(item);
+      orig.forEach((item, idx) => {
+        try {
+          const text = ((item.name||'') + ' ' + (item.comment||'') + ' ' + (item.source||'') + ' ' + (item.teacher||'')).toLowerCase();
+          const hit = kws.some(k => text.includes(k));
+          if (hit) matched.push(item); else rest.push(item);
+        } catch (inner) {
+          console.warn('skipping item due to parse error at index', idx, inner);
+        }
       });
 
+      console.log('matched count=', matched.length, 'rest count=', rest.length);
+
       if (matched.length === 0) {
-        alert('找不到符合預設關鍵詞的推薦項目；原始檔已建立下載備份。');
+        console.warn('no matches found for default keywords');
+        alert('找不到符合預設關鍵詞的推薦項目；原始檔已建立下載備份。\n詳情請查看 Console。');
         return;
       }
 
@@ -910,11 +925,12 @@
       downloadFile(`recommendations.updated.${ts}.json`, JSON.stringify(recommendations, null, 2));
 
       // 顯示本機備份指引位置
+      console.log('autoLoadRecs completed successfully');
       alert('已將匹配項目移至清單頂端。已下載原始備份與更新後檔案。\n\n本地備份資料夾（若使用 PowerShell 腳本）: outputs/cycu-general-education-planner/backups\n\n要把備份存到該資料夾，請在該資料夾執行：\n.\\save_snapshot.ps1 "pre-auto-load"');
 
     } catch (e) {
-      console.error(e);
-      alert('自動載入推薦時發生錯誤，請查看 Console。');
+      console.error('autoLoadRecs runtime error:', e && e.stack ? e.stack : e);
+      alert('自動載入推薦時發生錯誤（詳情請查看 Console），錯誤訊息: ' + (e && e.message ? e.message : String(e)));
     }
   }
 </script>
