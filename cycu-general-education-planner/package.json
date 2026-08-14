@@ -1,0 +1,13 @@
+{
+  "name": "cycu-planner-backend",
+  "version": "0.1.0",
+  "description": "Helpers to update recommendations for cycu planner",
+  "main": "scripts/update_recommendations.js",
+  "scripts": {
+    "update:recs": "node scripts/update_recommendations.js"
+  },
+  "dependencies": {
+    "rss-parser": "^3.12.0",
+    "node-fetch": "^3.3.1"
+  }
+}

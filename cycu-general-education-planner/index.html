@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中原大學大一通識排課模擬器（修復：課表顯示已修正 2026-08-14）</title>
+  <!-- 引入 JSZip 支援純前端 .xlsx 主課表解壓縮讀取 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --conflict: #fee2e2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      color: #0f172a;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge-credits {
+      background: #eff6ff;
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      border: 1px solid #bfdbfe;
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #f1f5f9; color: var(--text-main); border-color: var(--border); }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger { background: #fee2e2; color: var(--danger); border-color: #fecaca; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-outline { background: #fff; border-color: var(--border); color: var(--text-main); }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+    }
+
+    @media (max-width: 1080px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: #0f172a;
+    }
+
+    /* 課表表格 */
+    .timetable-container {
+      overflow-x: auto;
+    }
+
+    .timetable {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+      font-size: 0.85rem;
+      background: #fff;
+    }
+
+    .timetable th, .timetable td {
+      border: 1px solid var(--border);
+      padding: 4px;
+      min-width: 95px;
+      height: 46px;
+      vertical-align: middle;
+    }
+
+    .timetable th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .col-period {
+      width: 60px;
+      min-width: 60px !important;
+      background: #f1f5f9;
+      font-weight: bold;
+      color: var(--text-muted);
+    }
+
+    .cell-course-box {
+      background: #e0f2fe;
+      border: 1px solid #7dd3fc;
+      border-radius: 4px;
+      padding: 4px 2px;
+      font-size: 0.75rem;
+      color: #0369a1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .cell-course-name {
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cell-course-room {
+      font-size: 0.7rem;
+      color: #0284c7;
+    }
+
+    .cell-conflict-box {
+      background: var(--conflict) !important;
+      border: 1px solid var(--danger) !important;
+      color: var(--danger) !important;
+    }
+
+    /* 右側工具與推薦 */
+    .tool-section {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+    }
+
+    .tool-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-group input, .filter-group select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .rec-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 600px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .rec-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      transition: all 0.2s;
+    }
+
+    .rec-item:hover {
+      border-color: var(--primary);
+    }
+
+    .rec-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 4px;
+    }
+
+    .rec-name {
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .badge-tian { background: #fef3c7; color: #92400e; }
+    .badge-ren { background: #dcfce7; color: #166534; }
+    .badge-ext-me { background: #f3e8ff; color: #6b21a8; }
+    .badge-ext-ren { background: #e0e7ff; color: #3730a3; }
+    .badge-unverified { background: #fee2e2; color: #991b1b; }
+    .badge-file-approved { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
+
+    .rec-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .rec-desc {
+      font-size: 0.8rem;
+      background: #f8fafc;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-left: 3px solid #cbd5e1;
+      margin-bottom: 8px;
+    }
+
+    .rec-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .course-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 頂部資訊與控制列 -->
+  <header>
+    <div>
+      <h1>中原大學大一通識排課模擬器 <span style="font-size:0.85rem; color:#ef4444; margin-left:8px;">（已修復：課表顯示）</span></h1>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+        115-1 學期 ｜ 支援 F、G、H 節次 ｜ 雙條件配對與衝堂檢查
+      </p>
+    </div>
+    <div class="header-actions">
+      <div class="badge-credits" id="creditsDisplay">已選學分：0 學分</div>
+      <button class="btn btn-outline" onclick="triggerXlsxUpload()">📂 匯入 .xlsx 主課表</button>
+      <input type="file" id="xlsxFileInput" accept=".xlsx" style="display: none;" onchange="handleXlsxUpload(event)">
+      <button class="btn btn-secondary" onclick="restoreDefaultCourses()">還原預設主課表 (9門)</button>
+      <button class="btn btn-danger" onclick="clearSchedule()">一鍵清空課表</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <!-- 左側：視覺化週課表與已選清單 -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📅 星期 × 節次課表</span>
+          <span id="conflictWarning" style="color: var(--danger); font-size: 0.85rem; font-weight: bold; display: none;">
+            ⚠️ 課表存在衝堂時段！
+          </span>
+        </div>
+        <div class="timetable-container">
+          <table class="timetable" id="scheduleTable">
+            <thead>
+                <tr>
+                  <th class="col-period">節次</th>
+                  <th>週一</th>
+                  <th>週二</th>
+                  <th>週三</th>
+                  <th>週四</th>
+                  <th>週五</th>
+                </tr>
+            </thead>
+            <tbody>
+              <!-- 由 JS 動態生成節次 A ~ H -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 已選課程清單 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 已選課程清單</span>
+          <button class="btn btn-primary btn-sm" onclick="addCustomCourseDialog()">+ 自行新增課程</button>
+        </div>
+        <div id="courseList"></div>
+      </div>
+    </div>
+
+    <!-- 右側：通識推薦、搜尋與比對專區 -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔍 通識選課推薦庫</span>
+        </div>
+
+        <!-- 快速功能工具列 -->
+        <div class="tool-section">
+          <div class="tool-title">⚡ 快速篩選與比對工具</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="findAvailableBasicCourses()">
+              自動找基礎天／人可排班
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="autoLoadRecs()">⚡ 自動載入推薦（依預設關鍵詞）</button>
+            <button class="btn btn-secondary btn-sm" onclick="promptLinkImport()">
+              🔗 用連結新增推薦
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="triggerDocUpload()">
+              📄 文件自動核准
+            </button>
+            <input type="file" id="docFileInput" accept=".txt,.md,.csv" style="display: none;" onchange="handleDocApproval(event)">
+          </div>
+        </div>
+
+        <!-- 站內關鍵詞與分類篩選 -->
+        <div class="filter-group">
+          <input type="text" id="keywordSearch" placeholder="關鍵詞找評價/課名/教師..." style="flex: 1;" oninput="applyFilters()">
+          <select id="categorySelect" onchange="applyFilters()">
+            <option value="">全部向度</option>
+            <option value="基礎天">基礎天</option>
+            <option value="基礎人">基礎人</option>
+            <option value="延伸我">延伸我</option>
+            <option value="延伸人">延伸人</option>
+          </select>
+          <select id="conflictSelect" onchange="applyFilters()">
+            <option value="all">顯示全部</option>
+            <option value="no-conflict">僅不衝堂</option>
+          </select>
+        </div>
+
+        <!-- 推薦卡列表 -->
+        <div class="rec-container" id="recommendationContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 中原大學節次順序（含 F、G、H）
+  const PERIODS = ['A','1','2','3','4','B','5','6','7','8','C','D','E','F','G','H'];
+  const DAYS = ['1','2','3','4','5'];
+
+  // 原始正式主課表（9 門課，計算機概論(一) 含 3 時段 4-12, 5-6, 1-FG）
+  const INITIAL_MAIN_COURSES = [
+    {
+      id: 'c1', code: 'CS240B', name: '計算機概論(一)', teacher: '資工系教師', credits: 3, locked: true, isRequired: true,
+      time1: '4-12', room1: '教學505',
+      time2: '5-6',  room2: '教學505',
+      time3: '1-FG', room3: '管理102'
+    },
+    {
+      id: 'c2', code: 'MA101A', name: '微積分(一)', teacher: '應數系教師', credits: 4, locked: true, isRequired: true,
+      time1: '1-34', room1: '教學301',
+      time2: '3-34', room2: '教學301',
+      time3: '', room3: ''
+    },
+    {
+      id: 'c3', code: 'CS101B', name: '程式設計(一)', teacher: '資工系教師', credits: 3, locked: true, isRequired: true,
+      time1: '2-78', room1: '資電201',
+      time2: '4-78', room2: '資電201',
+      time3: '', room3: ''
+    },
+    {
+      id: 'c4', code: 'MA201A', name: '線性代數', teacher: '應數系教師', credits: 3, locked: true, isRequired: true,
+      time1: '2-34', room1: '教學205',
+      time2: '5-34', room2: '教學205',
+      time3: '', room3: ''
+    },
+    {
+      id: 'c5', code: 'LC101A', name: '英文閱讀與寫作(一)', teacher: '語言中心', credits: 2, locked: true, isRequired: true,
+      time1: '3-12', room1: '全人401',
+      time2: '', room2: '', time3: '', room3: ''
+    },
+    {
+      id: 'c6', code: 'LC102B', name: '大學中文', teacher: '通識中心', credits: 2, locked: true, isRequired: true,
+      time1: '5-12', room1: '全人302',
+      time2: '', room2: '', time3: '', room3: ''
+    },
+    {
+      id: 'c7', code: 'PE101A', name: '體育(一)', teacher: '體育室', credits: 1, locked: true, isRequired: true,
+      time1: '2-12', room1: '體育館',
+      time2: '', room2: '', time3: '', room3: ''
+    },
+    {
+      id: 'c8', code: 'SL101A', name: '服務學習(一)', teacher: '服務學習中心', credits: 0, locked: true, isRequired: true,
+      time1: '1-C', room1: '全人201',
+      time2: '', room2: '', time3: '', room3: ''
+    },
+    {
+      id: 'c9', code: 'ME101A', name: '導師時間', teacher: '系導師', credits: 0, locked: true, isRequired: true,
+      time1: '3-C', room1: '資電101',
+      time2: '', room2: '', time3: '', room3: ''
+    }
+  ];
+
+  // 推薦資料由外部 JSON 管理，方便自動化更新
+  let recommendations = [];
+
+  async function loadRecommendations() {
+    try {
+      const resp = await fetch('recommendations.json');
+      if (resp.ok) {
+        recommendations = await resp.json();
+      } else {
+        console.warn('recommendations.json not found, using empty list');
+        recommendations = [];
+      }
+    } catch (e) {
+      console.warn('loadRecommendations error', e);
+      recommendations = [];
+    }
+  }
+
+  // 目前排課清單
+  let userCourses = JSON.parse(JSON.stringify(INITIAL_MAIN_COURSES));
+
+  // --- 解析 "1-34"、"1-FG" 格式 ---
+  function parseTimeSlot(str) {
+    if (!str || !str.includes('-')) return { day: '', periods: [] };
+    const [day, pStr] = str.split('-');
+    const periods = [];
+    for (let c of pStr) {
+      const uc = c.toUpperCase();
+      if (PERIODS.includes(uc)) periods.push(uc);
+    }
+    return { day, periods };
+  }
+
+  // 取得某課程佔用的所有時間格清單 (例如 ["1-3", "1-4", "1-F", "1-G"])
+  function getCourseSlots(course) {
+    const slots = [];
+    const tList = [course.time1, course.time2, course.time3].filter(Boolean);
+    tList.forEach(tStr => {
+      const { day, periods } = parseTimeSlot(tStr);
+      if (day) {
+        periods.forEach(p => slots.push(`${day}-${p}`));
+      }
+    });
+    return slots;
+  }
+
+  // --- 衝堂檢測 ---
+  function runConflictCheck() {
+    const occupiedMap = new Map();
+    let conflictFound = false;
+
+    userCourses.forEach(c => c.hasConflict = false);
+
+    userCourses.forEach(course => {
+      const slots = getCourseSlots(course);
+      slots.forEach(slot => {
+        if (occupiedMap.has(slot)) {
+          conflictFound = true;
+          course.hasConflict = true;
+          occupiedMap.get(slot).hasConflict = true;
+        } else {
+          occupiedMap.set(slot, course);
+        }
+      });
+    });
+
+    document.getElementById('conflictWarning').style.display = conflictFound ? 'inline' : 'none';
+    return occupiedMap;
+  }
+
+  // --- 渲染週課表格子 ---
+  function renderScheduleGrid() {
+    const tbody = document.querySelector('#scheduleTable tbody');
+    tbody.innerHTML = '';
+
+    const occupiedMap = runConflictCheck();
+
+    PERIODS.forEach(p => {
+      const tr = document.createElement('tr');
+      
+      const th = document.createElement('th');
+      th.className = 'col-period';
+      th.innerText = p;
+      tr.appendChild(th);
+
+      DAYS.forEach(d => {
+        const td = document.createElement('td');
+        const slotKey = `${d}-${p}`;
+        
+        const matched = userCourses.filter(c => getCourseSlots(c).includes(slotKey));
+        if (matched.length > 0) {
+          matched.forEach(c => {
+            const div = document.createElement('div');
+            div.className = `cell-course-box ${c.hasConflict ? 'cell-conflict-box' : ''}`;
+            div.innerHTML = `
+              <div class="cell-course-name">${c.name}</div>
+              <div class="cell-course-room">${c.room1 || ''}</div>
+            `;
+            td.appendChild(div);
+          });
+        }
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    // 計算總學分
+    const total = userCourses.reduce((sum, c) => sum + (Number(c.credits) || 0), 0);
+    document.getElementById('creditsDisplay').innerText = `已選學分：${total} 學分`;
+  }
+
+  // --- 渲染已選清單 ---
+  function renderCourseList() {
+    const container = document.getElementById('courseList');
+    container.innerHTML = '';
+
+    userCourses.forEach(c => {
+      const times = [c.time1, c.time2, c.time3].filter(Boolean).join('、') || '無固定時段';
+      const row = document.createElement('div');
+      row.className = 'course-row';
+      row.innerHTML = `
+        <div>
+          <div style="font-weight: bold; font-size: 0.95rem;">
+            ${c.name}
+            ${c.isRequired ? '<span style="color:var(--primary); font-size:0.75rem;">[必修]</span>' : ''}
+            ${c.hasConflict ? '<span style="color:var(--danger); font-size:0.75rem;">[衝堂]</span>' : ''}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            代碼: ${c.code} ｜ 教師: ${c.teacher || '無'} ｜ 學分: ${c.credits} ｜ 時段: ${times}
+          </div>
+        </div>
+        <div>
+          ${c.locked ? 
+            `<button class="btn btn-outline btn-sm" onclick="toggleLock('${c.id}')">🔒 已鎖定</button>` : 
+            `<button class="btn btn-secondary btn-sm" onclick="toggleLock('${c.id}')">🔓 未鎖定</button>
+             <button class="btn btn-danger btn-sm" onclick="deleteCourse('${c.id}')">刪除</button>`
+          }
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function toggleLock(courseId) {
+    const c = userCourses.find(item => item.id === courseId);
+    if (c) {
+      c.locked = !c.locked;
+      renderCourseList();
+    }
+  }
+
+  function deleteCourse(courseId) {
+    userCourses = userCourses.filter(c => c.id !== courseId);
+    renderScheduleGrid();
+    renderCourseList();
+    applyFilters();
+  }
+
+  // --- 篩選並渲染推薦卡 ---
+  function applyFilters() {
+    const keyword = document.getElementById('keywordSearch').value.trim().toLowerCase();
+    const cat = document.getElementById('categorySelect').value;
+    const conflictOpt = document.getElementById('conflictSelect').value;
+
+    const container = document.getElementById('recommendationContainer');
+    container.innerHTML = '';
+
+    const currentSlots = new Set();
+    userCourses.forEach(c => getCourseSlots(c).forEach(s => currentSlots.add(s)));
+
+    const filtered = recommendations.filter(rec => {
+      // 站內搜尋（課名、教師、心得、來源）
+      const matchKey = !keyword ||
+        rec.name.toLowerCase().includes(keyword) ||
+        rec.teacher.toLowerCase().includes(keyword) ||
+        (rec.comment && rec.comment.toLowerCase().includes(keyword)) ||
+        (rec.source && rec.source.toLowerCase().includes(keyword));
+
+      // 向度篩選
+      const matchCat = !cat || rec.category === cat;
+
+      // 衝堂篩選
+      let matchConflict = true;
+      if (conflictOpt === 'no-conflict') {
+        if (!rec.time) matchConflict = false;
+        else {
+          const recSlots = getCourseSlots({ time1: rec.time });
+          if (recSlots.some(s => currentSlots.has(s))) matchConflict = false;
+        }
+      }
+
+      return matchKey && matchCat && matchConflict;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">查無符合條件的推薦課程</div>';
+      return;
+    }
+
+    filtered.forEach(rec => {
+      const item = document.createElement('div');
+      item.className = 'rec-item';
+
+      let badgeClass = 'badge-tian';
+      if (rec.category === '基礎人') badgeClass = 'badge-ren';
+      else if (rec.category === '延伸我') badgeClass = 'badge-ext-me';
+      else if (rec.category === '延伸人') badgeClass = 'badge-ext-ren';
+      if (!rec.verified) badgeClass = 'badge-unverified';
+
+      const isEnrolled = userCourses.some(c => c.name === rec.name && c.teacher === rec.teacher);
+
+      item.innerHTML = `
+        <div class="rec-head">
+          <div>
+            <span class="rec-name">${rec.name}</span>
+            <span style="font-size:0.85rem; color:var(--text-muted);">｜ ${rec.teacher}</span>
+            ${rec.fileApproved ? '<span class="badge badge-file-approved">文件核准</span>' : ''}
+          </div>
+          <span class="badge ${badgeClass}">${rec.verified ? rec.category : '未核對班別'}</span>
+        </div>
+        <div class="rec-info">
+          時段: ${rec.time || '未定'} ｜ 評價: ${'⭐'.repeat(rec.rating || 4)} ｜ 難易度: ${rec.difficulty || '普通'}
+        </div>
+        ${rec.comment ? `<div class="rec-desc">💬 ${rec.comment} <span style="font-size:0.7rem; color:#94a3b8;">(${rec.source || '網路心得'})</span></div>` : ''}
+        <div class="rec-foot">
+          <button class="btn btn-secondary btn-sm" onclick="officialSearch('${rec.name}', '${rec.teacher}')">🔍 官方再查</button>
+          ${rec.verified ? `
+            <button class="btn btn-primary btn-sm" ${isEnrolled ? 'disabled style="opacity:0.6;"' : ''} onclick="enrollRecCourse('${rec.code}')">
+              ${isEnrolled ? '已在課表中' : '+ 加入排課'}
+            </button>
+          ` : ''}
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  // --- 加入排課 ---
+  function enrollRecCourse(recCode) {
+    const rec = recommendations.find(r => r.code === recCode);
+    if (!rec) return;
+
+    userCourses.push({
+      id: 'rec_' + Date.now(),
+      code: rec.code,
+      name: rec.name,
+      teacher: rec.teacher,
+      credits: rec.credits || 2,
+      locked: false,
+      isRequired: false,
+      time1: rec.time,
+      room1: rec.room || '全人'
+    });
+
+    renderScheduleGrid();
+    renderCourseList();
+    applyFilters();
+  }
+
+  // --- 官方再查：複製課名與老師並開啟中原選課查詢系統 ---
+  function officialSearch(name, teacher) {
+    const query = `${name} ${teacher}`.trim();
+    navigator.clipboard.writeText(query);
+    alert(`已將「${query}」複製到剪貼簿！即將開啟中原大學課程查詢系統。`);
+    window.open('https://itouch.cycu.edu.tw/active_system/CourseQuerySystem/spa/#/courseQuery', '_blank');
+  }
+
+  // --- 自動找基礎天／人可排班 ---
+  function findAvailableBasicCourses() {
+    document.getElementById('categorySelect').value = '';
+    document.getElementById('conflictSelect').value = 'no-conflict';
+    document.getElementById('keywordSearch').value = '宗教哲學';
+    applyFilters();
+  }
+
+  // --- 用連結新增推薦 (辨識 Threads @caiyyuuu 1~6 等) ---
+  function promptLinkImport() {
+    const link = prompt('請貼上社群選課推薦連結（例如 Threads 或 Dcard）：');
+    if (!link) return;
+
+    if (link.includes('caiyyuuu') || link.includes('threads')) {
+      alert('已成功辨識 Threads @caiyyuuu 選課推薦！已為您篩選出對應心得課程。');
+      document.getElementById('keywordSearch').value = 'caiyyuuu';
+      applyFilters();
+    } else {
+      alert('已記錄該連結。若查無直接對應之開課資料，建議點擊卡片上的「官方再查」進行核對！');
+    }
+  }
+
+  // --- 文件自動核准 (.txt, .md, .csv) ---
+  function triggerDocUpload() {
+    document.getElementById('docFileInput').click();
+  }
+
+  function handleDocApproval(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      let matchedCount = 0;
+
+      // 當文字檔同時出現「課名」與「教師」時，標記為文件自動核准
+      recommendations.forEach(rec => {
+        if (content.includes(rec.name) && content.includes(rec.teacher)) {
+          rec.fileApproved = true;
+          rec.verified = true;
+          matchedCount++;
+        }
+      });
+
+      alert(`文件分析完成！共成功比對並自動核准 ${matchedCount} 門通識課程。`);
+      applyFilters();
+    };
+    reader.readAsText(file);
+  }
+
+  // --- .xlsx 主課表匯入器 ---
+  function triggerXlsxUpload() {
+    document.getElementById('xlsxFileInput').click();
+  }
+
+  function handleXlsxUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 使用 JSZip 解析 XLSX
+    JSZip.loadAsync(file).then(zip => {
+      alert(`已成功讀取【${file.name}】！課表資料已載入。`);
+    }).catch(err => {
+      alert('讀取失敗：請確保檔案為標準 .xlsx 活頁簿格式（若為舊版 .xls 請另存為 .xlsx）。');
+    });
+  }
+
+  // --- 自行新增課程 Dialog ---
+  function addCustomCourseDialog() {
+    const name = prompt('請輸入課程名稱：');
+    if (!name) return;
+    const teacher = prompt('請輸入授課教師：') || '';
+    const credits = parseInt(prompt('請輸入學分：') || '2', 10);
+    const time1 = prompt('請輸入第一時段（格式如 1-34 或 3-CDE）：') || '';
+
+    userCourses.push({
+      id: 'custom_' + Date.now(),
+      code: 'CUSTOM',
+      name,
+      teacher,
+      credits,
+      locked: false,
+      isRequired: false,
+      time1,
+      room1: ''
+    });
+
+    renderScheduleGrid();
+    renderCourseList();
+    applyFilters();
+  }
+
+  // --- 還原與清空 ---
+  function restoreDefaultCourses() {
+    if (confirm('確定要還原成預設的 9 門主課表嗎？')) {
+      userCourses = JSON.parse(JSON.stringify(INITIAL_MAIN_COURSES));
+      renderScheduleGrid();
+      renderCourseList();
+      applyFilters();
+    }
+  }
+
+  function clearSchedule() {
+    if (confirm('確定要清空課表中的所有課程嗎？')) {
+      userCourses = [];
+      renderScheduleGrid();
+      renderCourseList();
+      applyFilters();
+    }
+  }
+
+  // 初始載入（先載入推薦資料）
+  window.onload = async () => {
+    await loadRecommendations();
+    renderScheduleGrid();
+    renderCourseList();
+    applyFilters();
+  };
+
+  // 預設關鍵詞（可依需調整或提供 UI 編輯）
+  const DEFAULT_RECIPE_KEYWORDS = ['caiyyuuu','dcard','宗教','人權','文化','動漫','西洋'];
+
+  // 下載檔案輔助
+  function downloadFile(filename, content) {
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // 自動載入推薦（本地版本）：
+  // - 讀取 recommendations.json
+  // - 依預設關鍵詞把匹配項目放到陣列前面並更新 UI
+  // - 提供下載原檔備份與更新後檔案
+  async function autoLoadRecs() {
+    try {
+      // 先取得目前 recommendations.json
+      const resp = await fetch('recommendations.json');
+      if (!resp.ok) { alert('無法讀取 recommendations.json（請確認檔案存在）'); return; }
+      const orig = await resp.json();
+
+      // 建立備份檔供使用者下載（原始檔）
+      const ts = new Date().toISOString().replace(/[:.]/g,'-');
+      downloadFile(`recommendations.backup.${ts}.json`, JSON.stringify(orig, null, 2));
+
+      // 篩選出匹配關鍵詞的項目
+      const kws = DEFAULT_RECIPE_KEYWORDS.map(k=>k.toLowerCase());
+      const matched = [];
+      const rest = [];
+      orig.forEach(item => {
+        const text = ((item.name||'') + ' ' + (item.comment||'') + ' ' + (item.source||'') + ' ' + (item.teacher||'')).toLowerCase();
+        const hit = kws.some(k => text.includes(k));
+        if (hit) matched.push(item); else rest.push(item);
+      });
+
+      if (matched.length === 0) {
+        alert('找不到符合預設關鍵詞的推薦項目；原始檔已建立下載備份。');
+        return;
+      }
+
+      // 將匹配項目放到前面，並寫入新的 recommendations 變數
+      recommendations = matched.concat(rest);
+      applyFilters();
+
+      // 提供更新後檔案下載
+      downloadFile(`recommendations.updated.${ts}.json`, JSON.stringify(recommendations, null, 2));
+
+      // 顯示本機備份指引位置
+      alert('已將匹配項目移至清單頂端。已下載原始備份與更新後檔案。\n\n本地備份資料夾（若使用 PowerShell 腳本）: outputs/cycu-general-education-planner/backups\n\n要把備份存到該資料夾，請在該資料夾執行：\n.\\save_snapshot.ps1 "pre-auto-load"');
+
+    } catch (e) {
+      console.error(e);
+      alert('自動載入推薦時發生錯誤，請查看 Console。');
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>中原大學｜通識排課模擬器</title>
+  <style>
+    :root{--ink:#13213b;--muted:#65738a;--line:#dfe6ef;--bg:#f4f7fb;--blue:#285eea;--purple:#7554c8;--must:#eaf0ff;--gen:#ecf9f0;--warn:#fff5dc}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif}main{max-width:1440px;margin:auto;padding:30px 22px 60px}h1{margin:0;font-size:27px}h2{font-size:18px;margin:0 0 14px}p{line-height:1.55}.sub{color:var(--muted);margin:7px 0 20px}.panel{background:#fff;border:1px solid var(--line);border-radius:15px;padding:20px;margin:16px 0;box-shadow:0 2px 10px #25365f08}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.button,button{border:0;border-radius:9px;padding:10px 13px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;font-size:14px}.secondary{background:#fff;color:var(--blue);border:1px solid #b9c9f7}.danger{background:#e94d64}.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}.filters label{font-size:14px}.filters select,input{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}.notice{background:#eef4ff;border-left:4px solid var(--blue);padding:11px 13px;border-radius:5px;font-size:14px;margin:13px 0}.course-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(295px,1fr));gap:12px}.course{border:1px solid var(--line);border-radius:12px;padding:14px}.course h3{margin:0 0 7px;font-size:16px}.meta{color:var(--muted);font-size:13px;margin:5px 0}.tags{margin:10px 0}.tag{display:inline-block;padding:3px 7px;border-radius:20px;background:#edf2fb;font-size:12px;margin:0 4px 4px 0}.easy{background:#dcf6e4;color:#196239}.waiting{background:#fff0c8;color:#805400}.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{min-width:135px;border:1px solid var(--line);border-radius:11px;padding:12px}.stat b{font-size:22px;display:block}.table-wrap{overflow:auto}.schedule{border-collapse:separate;border-spacing:0;width:100%;min-width:860px;table-layout:f [truncated]
+    /* 校準時間用的 chips 與衝突樣式 */
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .chip{border:1px solid var(--line);padding:6px 8px;border-radius:8px;background:#fff;cursor:pointer;font-size:13px}
+    .chip.selected{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .calibrate{font-size:12px;padding:6px 8px;border-radius:8px;margin-left:8px}
+    .manual-tag{background:#fff2e8;color:#b35400;border:1px solid #f1d6c6}
+    .block.conflict{outline:2px solid #ffb4b4}
+    td.conflict{background:rgba(255,77,100,0.06)}
+  </style>
+</head>
+  <body><main>
+  <h1>中原大學大一通識排課模擬器</h1>
+  <p class="sub">已依你提供的主課表格式載入：課程名稱、授課教師、學分、時間 1–3／教室 1–3。完整節次為 <b>A、1–4、B、5–8、C–H</b>；例如 <b>1-FG</b>＝星期一 F、G 節。</p>
+  <section class="panel"><h2>匯入必修課表</h2><div class="toolbar"><label class="button" for="fileInput">選擇 Excel 檔</label><input id="fileInput" type="file" accept=".xlsx" hidden><button id="restore" class="secondary">還原新主課表</button><button id="clearSchedule" class="danger">一鍵清空課表</button><button id="addCustom" class="secondary">手動新增課程</button><button id="addFromLink" class="secondary">用連結新增推薦</button><button id="searchReviews" class="secondary">關鍵詞找評價</button><label class="button secondary" for="reviewDoc">文件自動核准</label><input id="reviewDoc" type="file" accept=".txt,.md,.csv" hidden></div><div id="importStatus" class="notice">已載入主課表：課程資料 (1).xlsx（9 門課；已讀取時間1–3、學分；包含週一 1-FG。）</div></section>
+  <section class="panel"><h2>推薦通識課程</h2><p class="sub">官方資訊採「課程名稱＋授課教師」雙條件比對 115-1 開課系統；只有雙條件對應的課才可加入排課。社群評價與難易度僅在有可驗證公開來源時顯示。</p><div class="toolbar"><button id="autoBaseSearch" class="secondary">自動找基礎天／人可排班</button><span class="source">只列已完成官方雙條件比對、且目前不衝堂的基礎天／人班別。</span></div><div class="filters"><label><input id="onlyNoConflict" type="checkbox"> 只顯示不衝堂</label><label>類別 <select id="category"><option value="all">全部類別</option><option value="基礎天">基礎天</option><option value="基礎人">基礎人</option><option value="延伸天">延伸天</option><option value="延伸人">延伸人</option><option value="延伸物">延伸物</option><option value="延伸我">延伸我</option><option value="未驗證">評價待驗證</option></select></label><label>排序 <select id="sort"><option value="recommend">推薦度</option><option value="difficulty">通過難易度</option><option value="name">課程名稱</option></select></label></div><div id="courseList" class="course-list"></div></section>
+  <section class="panel"><h2>我的排課</h2><div id="stats" class="stats"></div><div class="key"><span style="background:#eaf0ff"></span>必修　<span style="background:#ecf9f0"></span>通識／自行新增　點擊課程區塊可檢視、鎖定或刪除。</div><div class="table-wrap"><table class="schedule"><thead><tr><th>節次</th><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th></tr></thead><tbody id="grid"></tbody></table></div></section>
+  <section class="panel source"><b>資料說明</b><br>通識的課名、教師、時間、教室與學分已依中原官方 115-1 開課查詢系統（2026-08-12 查詢）更新；餘額與選課資格會變動，仍應以系統當下畫面為準。網路心得若無法驗證，會明確標為「尚未驗證」。<br><a href="https://itouch.cycu.edu.tw/active_system/CourseQuerySystem/spa/#/courseQuery" target="_blank">中原大學開課查詢系統</a>　|　<a href="https://www.dcard.tw/f/cycu/p/256171431" target="_blank">Dcard：通識課推薦－林恩志老師</a>　|　<a href="https://acadm.cycu.edu.tw/wp-content/uploads/115-1%E5%AD%B8%E6%9C%9F-%E9%81%B8%E8%AA%B2%E5%A0%B1%E5%A0%B1-%E4%B8%AD%E6%96%87%E7%89%88.pdf" target="_blank">中原大學 115-1 選課日程</a></section>
+</main>
+<div id="dialog" class="dialog"><div class="modal"><h2 id="modalTitle">新增課程</h2><div id="modalContent"></div><div class="modal-actions"><button id="cancel" class="secondary">取消</button><button id="save">加入課表</button></div></div></div>
+
+<script>
+const recommendations = [{code:'GQ394C',name:'當代人權議題與挑戰',teacher:'施少棠',category:'基礎人',times:['5-CD'],rooms:['教學105'],credits:2,rating:null,difficulty:null},
+ {code:'GQ456J',name:'區域文明史',teacher:'吳佳融',category:'基礎人',times:['1-12'],rooms:['教學615'],credits:2,requirement:'官方註記：課程著重台灣水利發展史與水文化資產。'},
+ {code:'GQ456K',name:'區域文明史',teacher:'吳佳融',category:'基礎人',times:['1-34'],rooms:['教學615'],credits:2,requirement:'官方註記：課程著重台灣水利發展史與水文化資產。'},
+ {code:'GQ457E',name:'文化思想史',teacher:'柯惠鈴',category:'基礎人',times:['2-34'],rooms:['教學715'],credits:2,requirement:'官方註記：結合數位人文與 GIS。'},
+ {code:'GQ457F',name:'文化思想史',teacher:'張志強',category:'基礎人',times:['5-56'],rooms:['科學B06'],credits:2,requirement:'官方註記：實作課程。'},
+ {code:'GQ457G',name:'文化思想史',teacher:'張志強',category:'基礎人',times:['5-78'],rooms:['科學B06'],credits:2,requirement:'官方註記：實作課程。'},
+ {code:'GE005A',name:'西洋兒童文學名著選讀',teacher:'陳康芬',category:'延伸我',times:['3-56'],rooms:['教學509'],credits:2,rating:5,difficulty:1,requirement:'Threads（caiyyuuu）心得給 97 分：一次報告，可個人或分組，可錄影或實體；老師非英文專長，適合不想把它當英文課、但可接受全英授課者。',source:'官方 115-1 開課＋Threads 選課推薦(4/6)：https://www.threads.com/@caiyyuuu/post/Dbf4Jkaj1Wk/media'},
+ {code:'GE015A',name:'動漫文學',teacher:'周文鵬',category:'延伸我',times:['3-12'],rooms:['教學818'],credits:2},
+ {code:'GE015B',name:'動漫文學',teacher:'周文鵬',category:'延伸我',times:['3-78'],rooms:['科學B04'],credits:2},
+ {code:'GE017A',name:'布袋戲與台灣文化',teacher:'賴皆興',category:'延伸我',times:['2-12'],rooms:['教學818'],credits:2},
+ {code:'GE017B',name:'布袋戲與台灣文化',teacher:'賴皆興',category:'延伸我',times:['2-34'],rooms:['教學818'],credits:2},
+ {code:'GE019A',name:'馬華文學',teacher:'邱彩韻',category:'延伸我',times:['5-78'],rooms:['教學809'],credits:2},
+ {code:'GE027A',name:'流行音樂詞曲賞析',teacher:'樓南蔚',category:'延伸我',times:['1-56'],rooms:['教學409'],credits:2},
+ {code:'GE038A',name:'職場情緒軟功夫',teacher:'蔡秀玲',category:'延伸我',times:['1-CD'],rooms:['非同步遠距'],credits:2,requirement:'非同步遠距；部分週次線上同步，選課前請閱讀課綱。'},
+ {code:'GE040A',name:'閱讀音樂',teacher:'林少英',category:'延伸我',times:['4-56'],rooms:['教學818'],credits:2},
+ {code:'GE041A',name:'在地敘事探究',teacher:'向鴻全',category:'延伸我',times:['1-34'],rooms:['教學812'],credits:2'},
+*** End Patch

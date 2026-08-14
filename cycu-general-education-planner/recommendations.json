@@ -1,0 +1,30 @@
+[
+  {
+    "code": "GE001A",
+    "name": "宗教哲學",
+    "teacher": "高天圓",
+    "category": "基礎天",
+    "credits": 2,
+    "time": "2-56",
+    "room": "全人202",
+    "rating": 5,
+    "difficulty": "簡單",
+    "comment": "99分，期中任務三選一、期末簡單PPT口頭報告。",
+    "source": "Threads @caiyyuuu",
+    "verified": true
+  },
+  {
+    "code": "GE005A",
+    "name": "西洋兒童文學名著選讀",
+    "teacher": "陳康芬",
+    "category": "延伸我",
+    "credits": 2,
+    "time": "3-56",
+    "room": "全人401",
+    "rating": 5,
+    "difficulty": "簡單",
+    "comment": "97分，一次報告，可個人或分組。",
+    "source": "Threads @caiyyuuu",
+    "verified": true
+  }
+]
