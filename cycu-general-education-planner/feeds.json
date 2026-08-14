@@ -1,4 +1,36 @@
 [
+  {
+    "name": "iTouch CourseQuery",
+    "url": "https://itouch.cycu.edu.tw/active_system/CourseQuerySystem/spa/#/courseQuery",
+    "type": "page",
+    "category": "官方"
+  },
+  {
+    "name": "Threads @caiyyuuu",
+    "url": "https://www.threads.net/@caiyyuuu",
+    "type": "page",
+    "category": "社群"
+  },
+  {
+    "name": "Dcard 通識版",
+    "url": "https://www.dcard.tw/f/general_education",
+    "type": "page",
+    "category": "社群"
+  },
+  {
+    "name": "Medium 教育標籤 (RSS)",
+    "url": "https://medium.com/feed/tag/education",
+    "type": "rss",
+    "category": "延伸我"
+  },
+  {
+    "name": "Example Site",
+    "url": "https://example.com",
+    "type": "page",
+    "category": "延伸我"
+  }
+]
+[
   { "name": "Threads_caiyyuuu", "url": "https://example.com/rss" },
   { "name": "Dcard_cycu", "url": "https://example.com/dcard.rss" }
 ]
