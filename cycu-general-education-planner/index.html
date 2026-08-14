@@ -22,48 +22,106 @@
     }
 
     * {
-      // helper: normalize text (lower, remove punctuation)
-      function normalizeText(s) {
-        // avoid Unicode property escapes for broader browser support
-        // remove punctuation/symbols by excluding letters, numbers, spaces, and common CJK range
-        return (s||'').toString().toLowerCase().replace(/[^\w\s\u4e00-\u9fff]+/g, ' ').replace(/\s+/g,' ').trim();
-      }
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
 
-      function tokenize(s) {
-        const t = normalizeText(s);
-        if (!t) return [];
-        return Array.from(new Set(t.split(' ').filter(Boolean)));
-      }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 20px;
+      line-height: 1.5;
+    }
 
-      function getTrigrams(s) {
-        const t = normalizeText(s).replace(/\s+/g, '');
-        const trigrams = new Set();
-        for (let i=0;i+3<=t.length;i++) trigrams.add(t.slice(i,i+3));
-        return trigrams;
-      }
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
 
-      function diceCoefficient(aSet, bSet) {
-        if (!aSet.size || !bSet.size) return 0;
-        let inter = 0;
-        aSet.forEach(x => { if (bSet.has(x)) inter++; });
-        return (2*inter) / (aSet.size + bSet.size);
-      }
+    header {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
 
-      function scoreRecommendation(item, keywords) {
-        const hay = [item.name, item.comment, item.source, item.teacher, item.code].filter(Boolean).join(' ');
-        const hayTokens = new Set(tokenize(hay));
-        const kwTokens = new Set(keywords.flatMap(k=>tokenize(k)));
+    h1 {
+      font-size: 1.5rem;
+      color: #0f172a;
+    }
 
-        // token overlap score
-        const overlap = diceCoefficient(hayTokens, kwTokens);
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
 
-        // trigram similarity on name vs joined keywords
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
+    .badge-credits {
+      background: #eff6ff;
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      border: 1px solid #bfdbfe;
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #f1f5f9; color: var(--text-main); border-color: var(--border); }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger { background: #fee2e2; color: var(--danger); border-color: #fecaca; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-outline { background: #fff; border-color: var(--border); color: var(--text-main); }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+    }
+
+    @media (max-width: 1080px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
       font-weight: bold;
       color: #0f172a;
     }
@@ -318,10 +376,7 @@
             <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="findAvailableBasicCourses()">
               自動找基礎天／人可排班
             </button>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input id="autoKeywords" placeholder="關鍵詞（逗號分隔）" style="padding:6px;border-radius:6px;border:1px solid var(--border);font-size:0.85rem;" />
-              <button class="btn btn-primary btn-sm" onclick="autoLoadRecs()">⚡ 自動載入推薦（依關鍵詞）</button>
-            </div>
+            <button class="btn btn-primary btn-sm" onclick="autoLoadRecs()">⚡ 自動載入推薦（依預設關鍵詞）</button>
             <button class="btn btn-secondary btn-sm" onclick="promptLinkImport()">
               🔗 用連結新增推薦
             </button>
@@ -636,11 +691,10 @@
         </div>
         <div class="rec-info">
           時段: ${rec.time || '未定'} ｜ 評價: ${'⭐'.repeat(rec.rating || 4)} ｜ 難易度: ${rec.difficulty || '普通'}
-          ${rec._matchScore ? `｜ 匹配度: ${(rec._matchScore*100).toFixed(0)}%` : ''}
         </div>
         ${rec.comment ? `<div class="rec-desc">💬 ${rec.comment} <span style="font-size:0.7rem; color:#94a3b8;">(${rec.source || '網路心得'})</span></div>` : ''}
         <div class="rec-foot">
-          <button class="btn btn-secondary btn-sm" onclick="officialSearch('${rec.name}', '${rec.teacher}', '${rec._itouchLink || ''}')">🔍 官方再查</button>
+          <button class="btn btn-secondary btn-sm" onclick="officialSearch('${rec.name}', '${rec.teacher}')">🔍 官方再查</button>
           ${rec.verified ? `
             <button class="btn btn-primary btn-sm" ${isEnrolled ? 'disabled style="opacity:0.6;"' : ''} onclick="enrollRecCourse('${rec.code}')">
               ${isEnrolled ? '已在課表中' : '+ 加入排課'}
@@ -675,16 +729,11 @@
   }
 
   // --- 官方再查：複製課名與老師並開啟中原選課查詢系統 ---
-  function officialSearch(name, teacher, itouchUrl) {
+  function officialSearch(name, teacher) {
     const query = `${name} ${teacher}`.trim();
     navigator.clipboard.writeText(query);
-    if (itouchUrl) {
-      alert(`已將「${query}」複製到剪貼簿！即將開啟中原大學課程查詢系統（已帶入查詢文字）。`);
-      window.open(itouchUrl, '_blank');
-    } else {
-      alert(`已將「${query}」複製到剪貼簿！即將開啟中原大學課程查詢系統。`);
-      window.open('https://itouch.cycu.edu.tw/active_system/CourseQuerySystem/spa/#/courseQuery', '_blank');
-    }
+    alert(`已將「${query}」複製到剪貼簿！即將開啟中原大學課程查詢系統。`);
+    window.open('https://itouch.cycu.edu.tw/active_system/CourseQuerySystem/spa/#/courseQuery', '_blank');
   }
 
   // --- 自動找基礎天／人可排班 ---
@@ -802,31 +851,13 @@
   // 初始載入（先載入推薦資料）
   window.onload = async () => {
     await loadRecommendations();
-    loadKeywordInput();
     renderScheduleGrid();
     renderCourseList();
     applyFilters();
   };
 
-  // 預設關鍵詞（使用者提供：中原大學、通識課、推薦）
-  const DEFAULT_RECIPE_KEYWORDS = ['中原','通識課','推薦'];
-
-  // 讀取／儲存關鍵詞到 localStorage，並預填 input
-  function loadKeywordInput() {
-    const saved = localStorage.getItem('autoKeywords');
-    const el = document.getElementById('autoKeywords');
-    if (!el) return;
-    if (saved) el.value = saved;
-    else el.value = DEFAULT_RECIPE_KEYWORDS.join(',');
-  }
-
-  function saveKeywordInput() {
-    const el = document.getElementById('autoKeywords');
-    if (!el) return [];
-    const list = el.value.split(',').map(s=>s.trim()).filter(Boolean);
-    localStorage.setItem('autoKeywords', list.join(','));
-    return list;
-  }
+  // 預設關鍵詞（可依需調整或提供 UI 編輯）
+  const DEFAULT_RECIPE_KEYWORDS = ['caiyyuuu','dcard','宗教','人權','文化','動漫','西洋'];
 
   // 下載檔案輔助
   function downloadFile(filename, content) {
@@ -857,18 +888,7 @@
       downloadFile(`recommendations.backup.${ts}.json`, JSON.stringify(orig, null, 2));
 
       // 篩選出匹配關鍵詞的項目
-      // 優先使用 input 或 localStorage 中的關鍵詞
-      let kwsList = [];
-      const el = document.getElementById('autoKeywords');
-      if (el && el.value.trim()) {
-        kwsList = el.value.split(',').map(s=>s.trim()).filter(Boolean);
-        localStorage.setItem('autoKeywords', kwsList.join(','));
-      } else {
-        const saved = localStorage.getItem('autoKeywords');
-        if (saved) kwsList = saved.split(',').map(s=>s.trim()).filter(Boolean);
-        else kwsList = DEFAULT_RECIPE_KEYWORDS;
-      }
-      const kws = kwsList.map(k=>k.toLowerCase());
+      const kws = DEFAULT_RECIPE_KEYWORDS.map(k=>k.toLowerCase());
       const matched = [];
       const rest = [];
       orig.forEach(item => {
