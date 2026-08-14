@@ -639,7 +639,16 @@
     const currentSlots = new Set();
     userCourses.forEach(c => getCourseSlots(c).forEach(s => currentSlots.add(s)));
 
-    const filtered = recommendations.filter(rec => {
+    const hasKeyword = !!keyword;
+    const hasCat = !!cat;
+    const hasConflict = (conflictOpt && conflictOpt !== 'all');
+
+    let filtered = [];
+    if (!hasKeyword && !hasCat && !hasConflict) {
+      // no filters selected — show all recommendations
+      filtered = recommendations.slice();
+    } else {
+      filtered = recommendations.filter(rec => {
       // 站內搜尋（課名、教師、心得、來源）
       const matchKey = !keyword ||
         rec.name.toLowerCase().includes(keyword) ||
