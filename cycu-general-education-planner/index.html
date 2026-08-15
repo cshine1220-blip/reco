@@ -748,14 +748,67 @@
   function promptLinkImport() {
     const link = prompt('請貼上社群選課推薦連結（例如 Threads 或 Dcard）：');
     if (!link) return;
-
-    if (link.includes('caiyyuuu') || link.includes('threads')) {
-      alert('已成功辨識 Threads @caiyyuuu 選課推薦！已為您篩選出對應心得課程。');
-      document.getElementById('keywordSearch').value = 'caiyyuuu';
-      applyFilters();
-    } else {
-      alert('已記錄該連結。若查無直接對應之開課資料，建議點擊卡片上的「官方再查」進行核對！');
+    // If it's a Threads link, offer to add as a manual recommendation (prompt for course name/teacher)
+    if (link.includes('threads')) {
+      if (confirm('偵測到 Threads 連結，是否要把此連結新增為推薦項目（需要手動填寫課名/教師）？')) {
+        promptAddRecommendationFromLink(link);
+      } else {
+        // fallback: just filter by recognizable keyword
+        if (link.includes('caiyyuuu')) {
+          document.getElementById('keywordSearch').value = 'caiyyuuu';
+        }
+        applyFilters();
+      }
+      return;
     }
+
+    alert('已記錄該連結。若查無直接對應之開課資料，建議點擊卡片上的「官方再查」進行核對！');
+  }
+
+  // --- 手動從連結新增推薦（彈出填表） ---
+  function promptAddRecommendationFromLink(link) {
+    try {
+      const suggestedName = link.split('/').slice(-1)[0].replace(/\W+/g, ' ').slice(0,60);
+      const name = prompt('請輸入課程名稱（可使用預填）:', suggestedName) || suggestedName || '未命名課程';
+      const teacher = prompt('請輸入授課教師（可留空）:', '') || '';
+      const category = prompt('請輸入分類（例如: 基礎人 / 延伸我 / 延伸人 / 官方）:', '延伸我') || '延伸我';
+      const credits = parseInt(prompt('請輸入學分（預設 2）:', '2') || '2', 10) || 2;
+
+      addRecommendationFromLink(link, { name, teacher, category, credits });
+    } catch (e) {
+      console.error('promptAddRecommendationFromLink error', e);
+      alert('新增推薦時發生錯誤，詳情請看 Console');
+    }
+  }
+
+  function addRecommendationFromLink(link, prefill = {}) {
+    const ts = Date.now();
+    const rec = {
+      code: 'MANUAL_' + ts,
+      name: prefill.name || ('手動推薦 ' + new Date(ts).toLocaleString()),
+      teacher: prefill.teacher || '',
+      category: prefill.category || '延伸我',
+      credits: prefill.credits || 2,
+      time: '',
+      room: '',
+      rating: null,
+      difficulty: null,
+      comment: link,
+      source: '手動新增',
+      verified: false
+    };
+
+    // Add to in-memory recommendations and refresh UI
+    if (!Array.isArray(recommendations)) recommendations = [];
+    recommendations.unshift(rec);
+    applyFilters();
+
+    // Offer download of updated recommendations (local save)
+    if (confirm('已新增推薦至暫存清單，是否要下載更新後的 recommendations.json？')) {
+      downloadFile(`recommendations.manual.${new Date().toISOString().replace(/[:.]/g,'-')}.json`, JSON.stringify(recommendations, null, 2));
+    }
+
+    alert('已成功新增推薦，請在推薦列表檢視。');
   }
 
   // --- 文件自動核准 (.txt, .md, .csv) ---
