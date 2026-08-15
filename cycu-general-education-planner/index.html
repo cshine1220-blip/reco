@@ -744,25 +744,83 @@
     applyFilters();
   }
 
-  // --- 用連結新增推薦 (辨識 Threads @caiyyuuu 1~6 等) ---
+  // --- 用連結新增推薦 (辨識 Threads / Dcard 等) ---
   function promptLinkImport() {
     const link = prompt('請貼上社群選課推薦連結（例如 Threads 或 Dcard）：');
     if (!link) return;
-    // If it's a Threads link, offer to add as a manual recommendation (prompt for course name/teacher)
-    if (link.includes('threads')) {
-      if (confirm('偵測到 Threads 連結，是否要把此連結新增為推薦項目（需要手動填寫課名/教師）？')) {
-        promptAddRecommendationFromLink(link);
-      } else {
-        // fallback: just filter by recognizable keyword
-        if (link.includes('caiyyuuu')) {
-          document.getElementById('keywordSearch').value = 'caiyyuuu';
-        }
-        applyFilters();
-      }
-      return;
-    }
 
-    alert('已記錄該連結。若查無直接對應之開課資料，建議點擊卡片上的「官方再查」進行核對！');
+    (async () => {
+      // Try to fetch and parse page text (may hit CORS)
+      try {
+        const resp = await fetch(link, { mode: 'cors' });
+        if (resp.ok) {
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            const html = await resp.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const selectors = ['article', '[role="article"]', '.post', '.thread', '.content', '.main-content'];
+            let extracted = '';
+            for (const s of selectors) {
+              const el = doc.querySelector(s);
+              if (el && el.innerText && el.innerText.trim().length > extracted.length) extracted = el.innerText.trim();
+            }
+            if (!extracted) {
+              const meta = doc.querySelector('meta[property="og:description"]') || doc.querySelector('meta[name="description"]');
+              if (meta && meta.content) extracted = meta.content;
+            }
+            if (extracted && extracted.length > 20) {
+              const recs = parseTextToRecommendations(extracted, link);
+              if (recs.length) {
+                if (confirm(`已從網頁偵測到 ${recs.length} 筆推薦，是否要匯入？`)) importRecommendationsArray(recs);
+                return;
+              }
+              // if no recs, offer to let user paste to refine
+              if (confirm('抓到頁面內容但無法自動解析為推薦，是否要把完整文字貼到輸入框由系統分段解析？')) {
+                const userText = prompt('請貼上貼文全文（或多筆推薦每筆空行分隔）：', extracted);
+                if (userText) {
+                  const recs2 = parseTextToRecommendations(userText, link);
+                  if (recs2.length) importRecommendationsArray(recs2);
+                  else alert('解析不到任何推薦，請手動新增。');
+                }
+                return;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('fetch failed or CORS, fallback to manual input', e);
+      }
+
+      // Fallback: ask user to paste text or upload image for OCR
+      const choice = prompt('無法自動抓取或頁面被阻擋。請選擇：\n1. 貼上貼文文字（輸入 1）\n2. 上傳圖片讓系統嘗試 OCR（輸入 2）', '1');
+      if (!choice) return;
+      if (choice.trim() === '1') {
+        const userText = prompt('請貼上貼文全文（若有多筆推薦請以空行分隔）：');
+        if (!userText) return;
+        const recs = parseTextToRecommendations(userText, link);
+        if (recs.length) importRecommendationsArray(recs);
+        else alert('系統無法自動解析出推薦，請手動新增。');
+        return;
+      }
+      if (choice.trim() === '2') {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/*';
+        input.onchange = async (ev) => {
+          const f = ev.target.files[0]; if (!f) return;
+          try {
+            const text = await handleImageUploadAndOCR(f);
+            if (!text || text.trim().length < 5) { alert('OCR 未偵測到足夠文字，請改為貼上文字或手動新增'); return; }
+            const recs = parseTextToRecommendations(text, link);
+            if (recs.length) importRecommendationsArray(recs);
+            else alert('OCR 後無法自動解析出推薦，請手動新增。');
+          } catch (err) { console.error(err); alert('OCR 失敗：' + err.message); }
+        };
+        input.click();
+        return;
+      }
+
+      alert('已記錄該連結；若想手動新增請使用「加入推薦」功能。');
+    })();
   }
 
   // --- 手動從連結新增推薦（彈出填表） ---
