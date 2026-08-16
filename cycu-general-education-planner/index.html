@@ -472,18 +472,10 @@
   let recommendations = [];
 
   async function loadRecommendations() {
-    try {
-      const resp = await fetch('recommendations.json');
-      if (resp.ok) {
-        recommendations = await resp.json();
-      } else {
-        console.warn('recommendations.json not found, using empty list');
-        recommendations = [];
-      }
-    } catch (e) {
-      console.warn('loadRecommendations error', e);
-      recommendations = [];
-    }
+    // Recommendations feature removed per user request.
+    // Previously this loaded `recommendations.json`. Keep empty list to avoid runtime errors.
+    recommendations = [];
+    return;
   }
 
   // 目前排課清單
