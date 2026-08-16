@@ -20,8 +20,10 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
-        working-directory: cycu-general-education-planner
+        # Try `npm ci` (fast, reproducible) and fallback to `npm install` if no lockfile.
+        run: |
+          cd cycu-general-education-planner
+          npm ci || npm install --no-audit --no-fund
 
       - name: Run recommendations updater
         run: npm run update:recs
