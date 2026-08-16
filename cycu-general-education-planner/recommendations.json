@@ -70,16 +70,16 @@
     "verified": false
   },
   {
-    "code": "PARSE_20260816_2",
-    "name": "區域文明史",
-    "teacher": "陳仲志",
+    "code": "PARSE_20260816_3",
+    "name": "認識大數據",
+    "teacher": "李孟哲",
     "category": "延伸我",
     "credits": 2,
     "time": "",
     "room": "",
-    "rating": 5,
+    "rating": 4,
     "difficulty": null,
-    "comment": "只要交期中、期末兩篇報告。又涼又甜。",
+    "comment": "每堂課都有筆記，老師很認真。分組用大數據探討經濟、氣候。不涼不甜，但有意義。",
     "source": "user_paste",
     "verified": false
   },
@@ -223,20 +223,7 @@
     "source": "user-provided post",
     "verified": false
   },
-  {
-    "code": "PARS_20260816_2",
-    "name": "區域文明史",
-    "teacher": "陳仲志",
-    "category": "延伸人",
-    "credits": 2,
-    "time": "",
-    "room": "",
-    "rating": 5,
-    "difficulty": null,
-    "comment": "只要交期中、期末兩篇報告。又涼又甜。",
-    "source": "user-provided post",
-    "verified": false
-  },
+  
   {
     "code": "PARS_20260816_3",
     "name": "認識大數據",
