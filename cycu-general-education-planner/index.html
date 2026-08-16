@@ -861,6 +861,67 @@
     alert('已成功新增推薦，請在推薦列表檢視。');
   }
 
+  // --- 解析貼文文字為推薦清單 ---
+  function parseTextToRecommendations(text, sourceUrl) {
+    if (!text || typeof text !== 'string') return [];
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const recs = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // 標題行通常包含「課程｜老師」形式
+      if (line.includes('｜') || line.includes('|')) {
+        const sep = line.includes('｜') ? '｜' : '|';
+        const parts = line.split(sep).map(p => p.trim());
+        const name = parts[0] || '';
+        let teacher = parts[1] || '';
+        // 偵測星號評分（如 ✨、★ 或 *）
+        const starMatch = line.match(/[✨★\*]+/);
+        const stars = starMatch ? (starMatch[0].replace(/[^✨★\*]/g,'').length) : 0;
+        const rating = stars || null;
+
+        // 往下收集後續描述當作簡短評論，直到遇到下一個標題行
+        let commentLines = [];
+        let j = i + 1;
+        while (j < lines.length && !(lines[j].includes('｜') || lines[j].includes('|'))) {
+          commentLines.push(lines[j]);
+          j++;
+        }
+        i = j - 1;
+
+        const comment = commentLines.join(' ').trim();
+
+        const rec = {
+          code: 'PARSE_' + Date.now() + '_' + (recs.length + 1),
+          name: name || (comment.slice(0,40) || '未命名課程'),
+          teacher: teacher || '',
+          category: '未分類',
+          credits: 2,
+          time: '',
+          room: '',
+          rating: rating,
+          difficulty: null,
+          comment: comment || sourceUrl || '',
+          source: sourceUrl || 'user_text',
+          verified: false
+        };
+        recs.push(rec);
+      }
+    }
+    return recs;
+  }
+
+  function importRecommendationsArray(items) {
+    if (!Array.isArray(items) || items.length === 0) { alert('沒有可匯入的推薦項目。'); return; }
+    if (!Array.isArray(recommendations)) recommendations = [];
+    // 預設將新項目放到前面
+    recommendations = items.concat(recommendations);
+    applyFilters();
+    if (confirm(`已匯入 ${items.length} 筆推薦，是否要下載匯入後的 recommendations.json？`)) {
+      downloadFile(`recommendations.imported.${new Date().toISOString().replace(/[:.]/g,'-')}.json`, JSON.stringify(recommendations, null, 2));
+    }
+    alert('匯入完成，請在推薦列表檢視。');
+  }
+
   // --- 文件自動核准 (.txt, .md, .csv) ---
   function triggerDocUpload() {
     document.getElementById('docFileInput').click();
